@@ -1,0 +1,619 @@
+{
+	"info": {
+		"name": "Conversation Session Service",
+		"description": "API collection for Voice AI platform conversation sessions",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Sessions",
+			"item": [
+				{
+					"name": "1. Create Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has sessionId\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('sessionId');",
+									"    pm.expect(jsonData.status).to.eql('initiated');",
+									"});",
+									"",
+									"// Save sessionId for other requests",
+									"if (pm.response.json().sessionId) {",
+									"    pm.collectionVariables.set('sessionId', pm.response.json().sessionId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sessionId\": \"session-{{$randomInt}}\",\n    \"language\": \"en\",\n    \"status\": \"initiated\",\n    \"metadata\": {\n        \"userId\": \"user-123\",\n        \"callId\": \"call-456\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions"
+							]
+						},
+						"description": "Creates a new conversation session. If sessionId already exists, returns existing session (idempotent)."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Create Session (Idempotency Test)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns existing session (idempotent)\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.sessionId).to.eql(pm.collectionVariables.get('sessionId'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sessionId\": \"{{sessionId}}\",\n    \"language\": \"en\",\n    \"metadata\": {}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions"
+							]
+						},
+						"description": "Tests idempotency - should return the same session created in step 1."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Get Session with Events",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has session and events\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('session');",
+									"    pm.expect(jsonData).to.have.property('events');",
+									"    pm.expect(jsonData).to.have.property('total');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}?limit=50&offset=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Retrieves a session with its events, ordered by timestamp. Supports pagination."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Get Session with Pagination",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}?limit=10&offset=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Get session with paginated events (limit=10, offset=0)."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Complete Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Session is completed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('completed');",
+									"    pm.expect(jsonData.endedAt).to.not.be.null;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/complete",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"complete"
+							]
+						},
+						"description": "Marks a session as completed and sets endedAt timestamp. Idempotent operation."
+					},
+					"response": []
+				},
+				{
+					"name": "6. Complete Session Again (Idempotency)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Still completed (idempotent)\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('completed');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/complete",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"complete"
+							]
+						},
+						"description": "Tests idempotency - completing an already completed session should return the same result."
+					},
+					"response": []
+				}
+			],
+			"description": "Session management endpoints"
+		},
+		{
+			"name": "Events",
+			"item": [
+				{
+					"name": "1. Add Event - User Speech",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Event created successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('eventId');",
+									"    pm.expect(jsonData.type).to.eql('user_speech');",
+									"});",
+									"",
+									"// Save eventId for idempotency test",
+									"if (pm.response.json().eventId) {",
+									"    pm.collectionVariables.set('eventId', pm.response.json().eventId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventId\": \"event-{{$randomInt}}\",\n    \"type\": \"user_speech\",\n    \"payload\": {\n        \"text\": \"Hello, I need help with my account\",\n        \"confidence\": 0.95,\n        \"language\": \"en\"\n    },\n    \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"events"
+							]
+						},
+						"description": "Adds a user_speech event to the session. Events are immutable and idempotent."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Add Event - Bot Speech",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventId\": \"event-{{$randomInt}}\",\n    \"type\": \"bot_speech\",\n    \"payload\": {\n        \"text\": \"I can help you with that. What would you like to know?\",\n        \"confidence\": 0.98\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"events"
+							]
+						},
+						"description": "Adds a bot_speech event to the session."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Add Event - System",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventId\": \"event-{{$randomInt}}\",\n    \"type\": \"system\",\n    \"payload\": {\n        \"action\": \"session_started\",\n        \"metadata\": {\n            \"version\": \"1.0\",\n            \"region\": \"us-east-1\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"events"
+							]
+						},
+						"description": "Adds a system event to the session."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Add Same Event (Idempotency Test)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Returns existing event (idempotent)\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.eventId).to.eql(pm.collectionVariables.get('eventId'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventId\": \"{{eventId}}\",\n    \"type\": \"user_speech\",\n    \"payload\": {\n        \"text\": \"Hello, I need help with my account\",\n        \"confidence\": 0.95\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}",
+								"events"
+							]
+						},
+						"description": "Tests idempotency - adding the same eventId should return the existing event."
+					},
+					"response": []
+				}
+			],
+			"description": "Event management endpoints"
+		},
+		{
+			"name": "Error Cases",
+			"item": [
+				{
+					"name": "1. Get Non-existent Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 404\", function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test(\"Error message is correct\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include('not found');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/non-existent-session-12345",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"non-existent-session-12345"
+							]
+						},
+						"description": "Tests error handling for non-existent session."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Add Event to Non-existent Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 404\", function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventId\": \"event-1\",\n    \"type\": \"user_speech\",\n    \"payload\": {\"text\": \"Hello\"}\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sessions/non-existent-session-12345/events",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"non-existent-session-12345",
+								"events"
+							]
+						},
+						"description": "Tests error handling when adding event to non-existent session."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Invalid Pagination - Limit Too High",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}?limit=200&offset=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "200",
+									"description": "Invalid: exceeds max of 100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						},
+						"description": "Tests validation - limit exceeds maximum allowed (100)."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Invalid Pagination - Negative Offset",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sessions/{{sessionId}}?limit=50&offset=-1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"sessions",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "offset",
+									"value": "-1",
+									"description": "Invalid: negative offset"
+								}
+							]
+						},
+						"description": "Tests validation - negative offset is not allowed."
+					},
+					"response": []
+				}
+			],
+			"description": "Error handling test cases"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "sessionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "eventId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
+
