@@ -22,6 +22,7 @@ import { SessionWithEventsResponseDto } from './dto/session-with-events-response
 import {
   DEFAULT_PAGINATION_LIMIT,
   MAX_PAGINATION_LIMIT,
+  MIN_PAGINATION_LIMIT,
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
 } from '../common/constants/app.constants';
