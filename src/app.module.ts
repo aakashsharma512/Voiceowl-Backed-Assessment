@@ -5,7 +5,6 @@ import { SessionsModule } from './sessions/sessions.module';
 
 @Module({
   imports: [
-    // Load environment variables from .env file
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
