@@ -18,7 +18,6 @@ export class EventRepository {
     limit: number = 50,
     offset: number = 0,
   ): Promise<ConversationEventDocument[]> {
-    // Sort by timestamp ascending to get chronological order
     return this.eventModel
       .find({ sessionId })
       .sort({ timestamp: 1 })
@@ -38,9 +37,6 @@ export class EventRepository {
     payload: Record<string, any>,
     timestamp: Date,
   ): Promise<ConversationEventDocument> {
-    // Upsert pattern for idempotency
-    // If the event exists, we get it back without creating duplicate
-    // The unique index on (sessionId, eventId) also protects us at DB level
     return this.eventModel
       .findOneAndUpdate(
         { sessionId, eventId },

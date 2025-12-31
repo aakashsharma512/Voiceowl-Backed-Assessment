@@ -10,7 +10,7 @@ export enum EventType {
 }
 
 @Schema({
-  timestamps: false, // We manage timestamps manually
+  timestamps: false,
   collection: 'conversation_events',
 })
 export class ConversationEvent {
@@ -33,11 +33,6 @@ export class ConversationEvent {
 export const ConversationEventSchema =
   SchemaFactory.createForClass(ConversationEvent);
 
-// Unique compound index: eventId must be unique per session
-// This prevents duplicate events and enables fast lookups
 ConversationEventSchema.index({ sessionId: 1, eventId: 1 }, { unique: true });
-
-// Compound index for pagination: filter by sessionId, sort by timestamp
-// This makes the GET /sessions/:id query efficient
 ConversationEventSchema.index({ sessionId: 1, timestamp: 1 });
 

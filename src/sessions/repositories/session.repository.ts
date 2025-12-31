@@ -22,9 +22,6 @@ export class SessionRepository {
     sessionId: string,
     data: Partial<ConversationSession>,
   ): Promise<ConversationSessionDocument> {
-    // Atomic upsert - handles concurrent requests
-    // $setOnInsert only sets these on creation, not on update
-    // This way if session exists, we don't overwrite it
     const now = new Date();
     return this.sessionModel
       .findOneAndUpdate(

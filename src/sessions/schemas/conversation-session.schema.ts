@@ -11,7 +11,7 @@ export enum SessionStatus {
 }
 
 @Schema({
-  timestamps: false, // We manage timestamps manually
+  timestamps: false,
   collection: 'conversation_sessions',
 })
 export class ConversationSession {
@@ -42,9 +42,6 @@ export class ConversationSession {
 export const ConversationSessionSchema =
   SchemaFactory.createForClass(ConversationSession);
 
-// Indexes for common query patterns
-// Compound index for filtering by sessionId and status
 ConversationSessionSchema.index({ sessionId: 1, status: 1 });
-// Index for sorting by start time (descending for recent first)
 ConversationSessionSchema.index({ startedAt: -1 });
 

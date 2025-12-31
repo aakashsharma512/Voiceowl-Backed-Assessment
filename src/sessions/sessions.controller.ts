@@ -20,7 +20,6 @@ export class SessionsController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async createOrUpsertSession(@Body() createSessionDto: CreateSessionDto) {
-    // Creates new session or returns existing one
     return this.sessionsService.createOrUpsertSession(createSessionDto);
   }
 
@@ -38,7 +37,6 @@ export class SessionsController {
     @Param('sessionId') sessionId: string,
     @Query() queryParams: QueryParamsDto,
   ) {
-    // Returns session with paginated events
     return this.sessionsService.getSessionWithEvents(sessionId, queryParams);
   }
 

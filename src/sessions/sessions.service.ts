@@ -19,6 +19,14 @@ import { ApiResponse, PaginatedResponse } from '../common/dto/api-response.dto';
 import { SessionResponseDto } from './dto/session-response.dto';
 import { EventResponseDto } from './dto/event-response.dto';
 import { SessionWithEventsResponseDto } from './dto/session-with-events-response.dto';
+import {
+  DEFAULT_PAGINATION_LIMIT,
+  MAX_PAGINATION_LIMIT,
+  ERROR_MESSAGES,
+  SUCCESS_MESSAGES,
+} from '../common/constants/app.constants';
+import { formatDate } from '../common/utils/date.utils';
+import { sanitizeMetadata } from '../common/utils/validation.utils';
 
 @Injectable()
 export class SessionsService {
@@ -34,32 +42,29 @@ export class SessionsService {
   ): Promise<ApiResponse<SessionResponseDto>> {
     const { sessionId, language, status, metadata } = createSessionDto;
 
-    // First check if we already have this session
     const existing = await this.sessionRepository.findById(sessionId);
     if (existing) {
       this.logger.debug(`Session ${sessionId} already exists, returning existing`);
       const sessionData = existing.toObject();
       return new ApiResponse<SessionResponseDto>(
         this.mapToSessionResponse(sessionData),
-        'Session retrieved successfully',
+        SUCCESS_MESSAGES.SESSION_RETRIEVED,
         true,
         HttpStatus.OK,
       );
     }
 
-    // Create new session - using upsert to handle race conditions
-    // If two requests come in at the same time, only one will create
     const newSession = await this.sessionRepository.createOrUpdate(sessionId, {
       language,
       status: status || SessionStatus.INITIATED,
-      metadata: metadata || {},
+      metadata: sanitizeMetadata(metadata),
     });
 
     this.logger.log(`Created new session: ${sessionId}`);
     const sessionData = newSession.toObject();
     return new ApiResponse<SessionResponseDto>(
       this.mapToSessionResponse(sessionData),
-      'Session created successfully',
+      SUCCESS_MESSAGES.SESSION_CREATED,
       true,
       HttpStatus.OK,
     );
@@ -69,32 +74,27 @@ export class SessionsService {
     sessionId: string,
     addEventDto: AddEventDto,
   ): Promise<ApiResponse<EventResponseDto>> {
-    // Make sure the session actually exists first
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) {
       this.logger.warn(`Attempted to add event to non-existent session: ${sessionId}`);
-      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.SESSION_NOT_FOUND(sessionId));
     }
 
     const { eventId, type, payload, timestamp } = addEventDto;
 
-    // Check if we've seen this event before (idempotency)
     const existing = await this.eventRepository.findById(sessionId, eventId);
     if (existing) {
       this.logger.debug(`Event ${eventId} already exists for session ${sessionId}`);
       const eventData = existing.toObject();
       return new ApiResponse<EventResponseDto>(
         this.mapToEventResponse(eventData),
-        'Event retrieved successfully (already exists)',
+        SUCCESS_MESSAGES.EVENT_RETRIEVED,
         true,
         HttpStatus.OK,
       );
     }
 
-    // Use the provided timestamp or default to now
     const eventTimestamp = timestamp || new Date();
-
-    // Create the event - upsert handles duplicates at DB level too
     const event = await this.eventRepository.create(
       sessionId,
       eventId,
@@ -107,7 +107,7 @@ export class SessionsService {
     const eventData = event.toObject();
     return new ApiResponse<EventResponseDto>(
       this.mapToEventResponse(eventData),
-      'Event created successfully',
+      SUCCESS_MESSAGES.EVENT_CREATED,
       true,
       HttpStatus.CREATED,
     );
@@ -119,22 +119,19 @@ export class SessionsService {
   ): Promise<ApiResponse<SessionWithEventsResponseDto>> {
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) {
-      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.SESSION_NOT_FOUND(sessionId));
     }
 
-    // Default pagination values
-    const limit = queryParams.limit ?? 50;
+    const limit = queryParams.limit ?? DEFAULT_PAGINATION_LIMIT;
     const offset = queryParams.offset ?? 0;
 
-    // Sanity check on pagination params
-    if (limit < 1 || limit > 100) {
-      throw new BadRequestException('Limit must be between 1 and 100');
+    if (limit < MIN_PAGINATION_LIMIT || limit > MAX_PAGINATION_LIMIT) {
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_PAGINATION_LIMIT);
     }
     if (offset < 0) {
-      throw new BadRequestException('Offset must be non-negative');
+      throw new BadRequestException(ERROR_MESSAGES.INVALID_PAGINATION_OFFSET);
     }
 
-    // Fetch events and total count in parallel for better performance
     const [events, total] = await Promise.all([
       this.eventRepository.findBySessionId(sessionId, limit, offset),
       this.eventRepository.countBySessionId(sessionId),
@@ -154,7 +151,7 @@ export class SessionsService {
 
     return new ApiResponse<SessionWithEventsResponseDto>(
       response,
-      'Session and events retrieved successfully',
+      SUCCESS_MESSAGES.SESSION_WITH_EVENTS_RETRIEVED,
       true,
       HttpStatus.OK,
     );
@@ -163,22 +160,20 @@ export class SessionsService {
   async completeSession(sessionId: string): Promise<ApiResponse<SessionResponseDto>> {
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) {
-      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.SESSION_NOT_FOUND(sessionId));
     }
 
-    // Already completed? Just return it (idempotent)
     if (session.status === SessionStatus.COMPLETED) {
       this.logger.debug(`Session ${sessionId} already completed`);
       const sessionData = session.toObject();
       return new ApiResponse<SessionResponseDto>(
         this.mapToSessionResponse(sessionData),
-        'Session already completed',
+        SUCCESS_MESSAGES.SESSION_ALREADY_COMPLETED,
         true,
         HttpStatus.OK,
       );
     }
 
-    // Mark as completed with current timestamp
     const endedAt = new Date();
     const updated = await this.sessionRepository.updateStatus(
       sessionId,
@@ -187,21 +182,19 @@ export class SessionsService {
     );
 
     if (!updated) {
-      // This shouldn't happen but just in case
-      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+      throw new NotFoundException(ERROR_MESSAGES.SESSION_NOT_FOUND(sessionId));
     }
 
     this.logger.log(`Completed session: ${sessionId}`);
     const sessionData = updated.toObject();
     return new ApiResponse<SessionResponseDto>(
       this.mapToSessionResponse(sessionData),
-      'Session completed successfully',
+      SUCCESS_MESSAGES.SESSION_COMPLETED,
       true,
       HttpStatus.OK,
     );
   }
 
-  // Helper methods to map database models to response DTOs
   private mapToSessionResponse(session: any): SessionResponseDto {
     return {
       sessionId: session.sessionId,
@@ -224,10 +217,7 @@ export class SessionsService {
   }
 
   private formatDate(date: Date | string | undefined): string {
-    if (!date) return '';
-    if (typeof date === 'string') return date;
-    if (date instanceof Date) return date.toISOString();
-    return String(date);
+    return formatDate(date);
   }
 }
 
